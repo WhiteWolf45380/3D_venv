@@ -1,141 +1,108 @@
-import pygame
 import numpy as np
 
 
+class Mesh:
+    """Mesh 3D avec vertices, triangles et normales"""
+    
+    def __init__(self, vertices, triangles, color=(200, 200, 200)):
+        self.vertices = np.array(vertices, dtype=np.float32)
+        self.triangles = np.array(triangles, dtype=np.int32)
+        self.color = np.array(color, dtype=np.float32)
+        self.compute_normals()
+    
+    def compute_normals(self):
+        """Calcule les normales par vertex (moyenne des normales de faces)"""
+        self.normals = np.zeros_like(self.vertices)
+        
+        for tri in self.triangles:
+            i0, i1, i2 = tri
+            p0, p1, p2 = self.vertices[tri]
+            
+            # Normale de face
+            edge1 = p1 - p0
+            edge2 = p2 - p0
+            normal = np.cross(edge1, edge2)
+            norm = np.linalg.norm(normal)
+            if norm > 1e-8:
+                normal /= norm
+            
+            # Accumule sur chaque vertex
+            self.normals[i0] += normal
+            self.normals[i1] += normal
+            self.normals[i2] += normal
+        
+        # Normalise
+        norms = np.linalg.norm(self.normals, axis=1)[:, None]
+        self.normals = np.where(norms > 1e-8, self.normals / norms, 0)
+    
+    @staticmethod
+    def cube(size=1.0, color=(220, 100, 80)):
+        """Crée un cube"""
+        s = size / 2
+        vertices = np.array([
+            [-s, -s, -s], [s, -s, -s], [s, s, -s], [-s, s, -s],  # face arrière
+            [-s, -s, s], [s, -s, s], [s, s, s], [-s, s, s]      # face avant
+        ], dtype=np.float32)
+        
+        triangles = np.array([
+            [0, 1, 2], [0, 2, 3],  # face arrière
+            [4, 6, 5], [4, 7, 6],  # face avant
+            [0, 4, 5], [0, 5, 1],  # côté gauche
+            [1, 5, 6], [1, 6, 2],  # côté droit
+            [2, 6, 7], [2, 7, 3],  # haut
+            [3, 7, 4], [3, 4, 0]   # bas
+        ], dtype=np.int32)
+        
+        return Mesh(vertices, triangles, color)
+    
+    @staticmethod
+    def plane(size=10.0, subdivisions=1, color=(150, 150, 150)):
+        """Crée un plan horizontal (sol)"""
+        s = size / 2
+        step = size / subdivisions
+        vertices = []
+        
+        for i in range(subdivisions + 1):
+            for j in range(subdivisions + 1):
+                x = -s + j * step
+                z = -s + i * step
+                vertices.append([x, 0, z])
+        
+        vertices = np.array(vertices, dtype=np.float32)
+        
+        triangles = []
+        for i in range(subdivisions):
+            for j in range(subdivisions):
+                idx = i * (subdivisions + 1) + j
+                triangles.append([idx, idx + subdivisions + 1, idx + 1])
+                triangles.append([idx + 1, idx + subdivisions + 1, idx + subdivisions + 2])
+        
+        triangles = np.array(triangles, dtype=np.int32)
+        
+        return Mesh(vertices, triangles, color)
+
 class Environnement:
+    """Environnement 3D contenant les objets de la scène"""
+    
     def __init__(self, main):
-        """formalités"""
         self.main = main
-
-        """objets"""
         self.objects = []
-
-        # Ajoute des objets de test
-        self.objects.append(Sphere([5, 0, 0], 1.0, [255, 100, 100]))      # rouge
-        self.objects.append(Sphere([5, -2, 1], 0.8, [100, 255, 100]))     # verte
-        self.objects.append(Sphere([5, 2, -1], 0.6, [100, 100, 255]))     # bleue
-        self.objects.append(Plane([0, -2, 0], [0, 1, 0], [200, 200, 200])) # sol gris
-
-
-class Sphere:
-    def __init__(self, center, radius, color):
-        self.type = "sphere"
-        self.center = np.array(center)
-        self.radius = radius
-        self.color = np.array(color)
-
-
-class Sphere:
-    def __init__(self, center, radius, color):
-        self.type = "sphere"
-        self.center = np.array(center, dtype=np.float64)
-        self.radius = radius
-        self.color = np.array(color, dtype=np.float64)
+        self.setup_scene()
     
-    def intersect(self, ray_origins, ray_directions):
-        """
-        Intersection ray-sphere vectorisée pour TOUS les rayons à la fois
+    def setup_scene(self):
+        """Crée la scène de base"""        
+        # Cubes
+        cube1 = Mesh.cube(size=2.0, color=(220, 100, 80))
+        cube1.vertices[:, 1] += 1.0  # élève le cube
+        cube1.vertices[:, 0] -= 3.0  # décale à gauche
+        self.objects.append(cube1)
         
-        ray_origins: array shape (H, W, 3)
-        ray_directions: array shape (H, W, 3)
+        cube2 = Mesh.cube(size=1.5, color=(80, 220, 100))
+        cube2.vertices[:, 1] += 0.75
+        cube2.vertices[:, 0] += 3.0  # décale à droite
+        self.objects.append(cube2)
         
-        retourne: hit_mask, distances, hit_points, normals
-        """
-        # Vecteur du centre de la sphère vers l'origine du rayon
-        oc = ray_origins - self.center  # shape: (H, W, 3)
-        
-        # Coefficients de l'équation quadratique at² + bt + c = 0
-        a = np.sum(ray_directions * ray_directions, axis=2)  # shape: (H, W)
-        b = 2.0 * np.sum(oc * ray_directions, axis=2)        # shape: (H, W)
-        c = np.sum(oc * oc, axis=2) - self.radius**2         # shape: (H, W)
-        
-        # Discriminant
-        discriminant = b*b - 4*a*c  # shape: (H, W)
-        
-        # Masque des pixels qui intersectent la sphère
-        hit_mask = discriminant > 0  # shape: (H, W) - boolean
-        
-        # Initialisation des résultats
-        H, W, _ = ray_origins.shape
-        distances = np.full((H, W), np.inf)
-        hit_points = np.zeros((H, W, 3))
-        normals = np.zeros((H, W, 3))
-        
-        if np.any(hit_mask):
-            # Distance jusqu'à l'intersection (on prend la plus proche)
-            sqrt_disc = np.sqrt(discriminant[hit_mask])
-            t1 = (-b[hit_mask] - sqrt_disc) / (2.0 * a[hit_mask])
-            t2 = (-b[hit_mask] + sqrt_disc) / (2.0 * a[hit_mask])
-            
-            # On prend la distance positive la plus proche
-            t = np.where((t1 > 0) & (t1 < t2), t1, t2)
-            
-            # Filtrer les distances négatives (derrière la caméra)
-            valid = t > 0
-            if np.any(valid):
-                # Point d'intersection
-                hit_points[hit_mask] = (
-                    ray_origins[hit_mask] + 
-                    ray_directions[hit_mask] * t[..., np.newaxis]
-                )
-                
-                # Normale à la surface (normalisée)
-                normals[hit_mask] = hit_points[hit_mask] - self.center
-                norms = np.linalg.norm(normals[hit_mask], axis=1, keepdims=True)
-                normals[hit_mask] = normals[hit_mask] / norms
-                
-                distances[hit_mask] = t
-        
-        return hit_mask, distances, hit_points, normals
-
-
-class Plane:
-    def __init__(self, point, normal, color):
-        self.type = "plane"
-        self.point = np.array(point, dtype=np.float64)
-        self.normal = np.array(normal, dtype=np.float64)
-        self.normal = self.normal / np.linalg.norm(self.normal)  # normaliser
-        self.color = np.array(color, dtype=np.float64)
-    
-    def intersect(self, ray_origins, ray_directions):
-        """
-        Intersection ray-plane vectorisée
-        
-        Équation du plan : (P - P0) · N = 0
-        Équation du rayon : P = O + t*D
-        Solution : t = (P0 - O) · N / (D · N)
-        """
-        H, W, _ = ray_origins.shape
-        
-        # Produit scalaire direction · normale
-        denom = np.sum(ray_directions * self.normal, axis=2)  # shape: (H, W)
-        
-        # Éviter division par zéro (rayon parallèle au plan)
-        hit_mask = np.abs(denom) > 1e-6
-        
-        distances = np.full((H, W), np.inf)
-        hit_points = np.zeros((H, W, 3))
-        normals = np.zeros((H, W, 3))
-        
-        if np.any(hit_mask):
-            # Distance jusqu'à l'intersection
-            p0o = self.point - ray_origins[hit_mask]
-            t = np.sum(p0o * self.normal, axis=1) / denom[hit_mask]
-            
-            # Filtrer les intersections derrière la caméra
-            valid = t > 0
-            hit_mask_copy = hit_mask.copy()
-            hit_mask[hit_mask_copy] = valid
-            
-            if np.any(valid):
-                # Point d'intersection
-                hit_points[hit_mask] = (
-                    ray_origins[hit_mask] + 
-                    ray_directions[hit_mask] * t[valid][..., np.newaxis]
-                )
-                
-                # La normale est constante pour un plan
-                normals[hit_mask] = self.normal
-                distances[hit_mask] = t[valid]
-        
-        return hit_mask, distances, hit_points, normals
+        cube3 = Mesh.cube(size=1.0, color=(100, 100, 220))
+        cube3.vertices[:, 1] += 0.5
+        cube3.vertices[:, 2] += 4.0  # décale devant
+        self.objects.append(cube3)

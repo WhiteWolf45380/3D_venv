@@ -2,70 +2,54 @@ import numpy as np
 
 
 class Vector:
-    def __init__(self, *coords):
-        """crée un vecteur"""
-        if len(coords) == 1 and hasattr(coords[0], "__iter__"):
-            coords = tuple(coords[0])
-        coords = coords + tuple(0 for _ in range(max(0, 3 - len(coords))))
-        self.coordinates = np.array(coords, dtype=np.float64)
+    """Vecteur 3D optimisé avec numpy"""
+    __slots__ = ['data']
     
-    # --- manipulation ---
-    def __getitem__(self, i: int):
-        """utilisation de la recherche par indice"""
-        return self.coordinates[i] if i < len(self) else 0
+    def __init__(self, x=0.0, y=0.0, z=0.0):
+        if isinstance(x, (list, tuple, np.ndarray)):
+            self.data = np.array(x, dtype=np.float32)[:3]
+            if len(self.data) < 3:
+                self.data = np.pad(self.data, (0, 3 - len(self.data)))
+        else:
+            self.data = np.array([x, y, z], dtype=np.float32)
     
-    def __setitem__(self, i, value):
-        """utilisation de la modification par indice"""
-        self.coordinates[i] = value
-    
-    def __len__(self):
-        """renvoie le nombre de dimensions du vecteur"""
-        return len(self.coordinates)
-    
-    def __repr__(self):
-        """renvoie une représentation du vecteur"""
-        return f"Vector{tuple(map(round, self.coordinates.tolist()))}"
-    
-    # --- opérations ---
-    def __add__(self, other):
-        """addition vectorielle"""
-        return Vector(self.coordinates + other.coordinates)
-
-    def __sub__(self, other):
-        """soustraction vectorielle"""
-        return Vector(self.coordinates - other.coordinates)
-
-    def __mul__(self, other):
-        """multiplication vectorielle"""
-        if isinstance(other, Vector): # produit vectoriel
-            return self.cross(other)
-        else: # produit par un scalaire
-            return Vector(self.coordinates * other)
-        
-    def __rmul__(self, other):
-        """produit par un scalaire"""
-        return self * other
-    
-    def __matmul__(self, other):
-        """produit scalaire"""
-        return self.dot(other)
-
     @property
-    def norm(self):
-        """renvoie la norme du vecteur"""
-        return float(np.linalg.norm(self.coordinates))
+    def x(self): return self.data[0]
+    @property
+    def y(self): return self.data[1]
+    @property
+    def z(self): return self.data[2]
     
-    def cross(self, other):
-        """renvoie le produit vectoriel"""
-        return Vector(np.cross(self.coordinates, other.coordinates))
-
-    def dot(self, other):
-        """renvoie le produit scalaire"""
-        return float(np.dot(self.coordinates, other.coordinates))
-
-    def normalize(self):
-        """normalisation à 1 du vecteur"""
-        n = self.norm
-        if n != 0:
-            self.coordinates /= n
-        return self
+    @x.setter
+    def x(self, v): self.data[0] = v
+    @y.setter
+    def y(self, v): self.data[1] = v
+    @z.setter
+    def z(self, v): self.data[2] = v
+    
+    def __getitem__(self, i): return self.data[i]
+    def __setitem__(self, i, v): self.data[i] = v
+    def __repr__(self): return f"V({self.x:.2f}, {self.y:.2f}, {self.z:.2f})"
+    
+    def __add__(self, other): return Vector(self.data + other.data)
+    def __sub__(self, other): return Vector(self.data - other.data)
+    def __mul__(self, s): return Vector(self.data * s)
+    def __rmul__(self, s): return Vector(self.data * s)
+    def __truediv__(self, s): return Vector(self.data / s)
+    def __neg__(self): return Vector(-self.data)
+    
+    def dot(self, other): 
+        return float(np.dot(self.data, other.data))
+    
+    def cross(self, other): 
+        return Vector(np.cross(self.data, other.data))
+    
+    def length(self): 
+        return float(np.linalg.norm(self.data))
+    
+    def normalized(self):
+        l = self.length()
+        return self / l if l > 1e-8 else Vector(0, 0, 0)
+    
+    def copy(self):
+        return Vector(self.data.copy())

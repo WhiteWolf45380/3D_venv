@@ -59,6 +59,7 @@ class Main:
         while self.running:
             self.dt = self.clock.tick(self.fps_max) / 1000 # limite de fps
             self.calc_screen_offsets() # adadptation des dimensions de l'écran
+            print(1 / self.dt)
 
             # souris
             mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -72,9 +73,13 @@ class Main:
             # vérification des entrées utilisateur
             self.handle_inputs()
 
-            # actualisation de l'environnement
-            self.pov.update()
-            self.render.update()
+            # mouse look
+            mx, my = pygame.mouse.get_rel()
+            if pygame.mouse.get_pressed()[0]:
+                self.pov.rotate(-mx * 0.002, my * 0.002)
+            self.render.clear()
+            self.render.draw_scene()
+            self.render.present()
 
             # mise à jour de l'écran
             self.blit_screen_resized()
@@ -91,11 +96,25 @@ class Main:
                 if not self.fullscreen:
                     self.windowed_width = event.w
                     self.windowed_height = event.h
+                self.render.resize_buffers()
             
             elif event.type == pygame.KEYDOWN:
                 # toggle mode du plein écran
                 if event.key == pygame.K_F11:
                     self.toggle_fullscreen()
+                    self.render.resize_buffers()
+                
+        keys = pygame.key.get_pressed()
+        # simple camera
+        speed = 3.0 * self.dt
+        if keys[pygame.K_z]:
+            self.pov.move([0,0, speed])
+        if keys[pygame.K_s]:
+            self.pov.move([0,0,-speed])
+        if keys[pygame.K_d]:
+            self.pov.move([-speed,0,0])
+        if keys[pygame.K_q]:
+            self.pov.move([speed,0,0])
 
     def toggle_fullscreen(self):
         """bascule entre mode fenêtré et plein écran"""
