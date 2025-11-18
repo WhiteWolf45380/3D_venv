@@ -12,7 +12,7 @@ class Main:
         """variables utiles"""
         self.running = True # état du logiciel
         self.clock = pygame.time.Clock() # clock pygame
-        self.fps_max = 30 # limite de fps
+        self.fps_max = 100 # limite de fps
         self.dt = 0 # delta time utilisé pour les animations
 
         # curseur
@@ -58,7 +58,6 @@ class Main:
         """loop principal du logiciel"""
         while self.running:
             self.dt = self.clock.tick(self.fps_max) / 1000 # limite de fps
-            print(1 / self.dt)
             self.calc_screen_offsets() # adadptation des dimensions de l'écran
 
             # souris

@@ -1,4 +1,5 @@
 import pygame
+import numpy as np
 import math
 from _vector import Vector
 
@@ -91,6 +92,20 @@ class Pov:
         self.up = self.vect * self.right
         self.up.normalize()
     
-    def get_pixel(self, i: int, j: int):
-        """retourne la position virtuelle d'un pixel de l'écran de projection"""
-        pixel = self.center + self.right * (j - self.width / 2) - self.up * (i - self.height / 2)
+    def get_all_pixels(self, width=None, height=None):
+        """retourne toutes les positions des pixels de l'écran de projection"""
+        w = width if width is not None else self.width
+        h = height if height is not None else self.height
+        
+        i_coords = np.linspace(0, self.height, h, endpoint=False)
+        j_coords = np.linspace(0, self.width, w, endpoint=False)
+        J, I = np.meshgrid(j_coords, i_coords)
+        
+        center = self.center.coordinates.reshape(1, 1, 3)
+        right = self.right.coordinates.reshape(1, 1, 3)
+        up = self.up.coordinates.reshape(1, 1, 3)
+        
+        offset_j = (J - self.width / 2)[..., np.newaxis]
+        offset_i = (I - self.height / 2)[..., np.newaxis]
+        
+        return center + right * offset_j - up * offset_i
