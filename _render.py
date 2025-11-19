@@ -11,8 +11,8 @@ class Render:
         self.pov = main.pov
         self.quality = quality
         
-        # Lumière directionnelle
-        self.light_dir = np.array([0.5, 1.0, 0.3], dtype=np.float32)
+        # lumière directionnelle
+        self.light_dir = np.array([0.5, 3, 1], dtype=np.float32)
         self.light_dir /= np.linalg.norm(self.light_dir)
         
         self.resize_buffers()

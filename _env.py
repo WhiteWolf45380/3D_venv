@@ -92,17 +92,27 @@ class Environnement:
     def setup_scene(self):
         """Crée la scène de base"""        
         # Cubes
-        cube1 = Mesh.cube(size=2.0, color=(220, 100, 80))
-        cube1.vertices[:, 1] += 1.0  # élève le cube
+        cube1 = Mesh.cube(size=2, color=(255, 0, 0)) # rouge
+        cube1.vertices[:, 1] += 0.0  # élève le cube
         cube1.vertices[:, 0] -= 3.0  # décale à gauche
         self.objects.append(cube1)
         
-        cube2 = Mesh.cube(size=1.5, color=(80, 220, 100))
-        cube2.vertices[:, 1] += 0.75
-        cube2.vertices[:, 0] += 3.0  # décale à droite
+        cube2 = Mesh.cube(size=2, color=(255, 255, 0)) # jaune
+        cube2.vertices[:, 1] -= 2
+        cube2.vertices[:, 2] += 3.0  # décale devant
+        self.objects.append(cube2)
+
+        cube2 = Mesh.cube(size=2, color=(0, 255, 0)) # vert
+        cube2.vertices[:, 1] += 0
+        cube2.vertices[:, 2] += 6.0  # décale devant
+        self.objects.append(cube2)
+
+        cube2 = Mesh.cube(size=2, color=(0, 255, 255)) # cyan
+        cube2.vertices[:, 1] += 2
+        cube2.vertices[:, 2] += 3.0  # décale devant
         self.objects.append(cube2)
         
-        cube3 = Mesh.cube(size=1.0, color=(100, 100, 220))
-        cube3.vertices[:, 1] += 0.5
-        cube3.vertices[:, 2] += 4.0  # décale devant
+        cube3 = Mesh.cube(size=2, color=(0, 0, 255)) # bleu
+        cube3.vertices[:, 1] += 0
+        cube3.vertices[:, 0] += 3.0  # décale à droite
         self.objects.append(cube3)

@@ -15,11 +15,6 @@ class Main:
         self.fps_max = 100 # limite de fps
         self.dt = 0 # delta time utilisé pour les animations
 
-        # curseur
-        self.mouse_out = False # curseur en dehors de l'écran
-        self.mouse_x = 0
-        self.mouse_y = 0
-
         """pygame"""
         pygame.init()
 
@@ -49,6 +44,13 @@ class Main:
         pygame.display.set_caption("Environnement virtuel 3D")  # titre de la fenêtre
         # pygame.display.set_icon(pygame.image.load(self.get_path("assets/icon.png")))  # icone de la fenêtre
 
+        # curseur
+        pygame.mouse.set_visible(False)
+        pygame.event.set_grab(True)
+        self.mouse_x = self.screen_width / 2
+        self.mouse_y = self.screen_height / 2
+        self.mouse_out = False # curseur en dehors de l'écran
+
         """objets"""
         self.env = Environnement(self)
         self.pov = Pov(self)
@@ -59,7 +61,6 @@ class Main:
         while self.running:
             self.dt = self.clock.tick(self.fps_max) / 1000 # limite de fps
             self.calc_screen_offsets() # adadptation des dimensions de l'écran
-            print(1 / self.dt)
 
             # souris
             mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -75,8 +76,10 @@ class Main:
 
             # mouse look
             mx, my = pygame.mouse.get_rel()
-            if pygame.mouse.get_pressed()[0]:
-                self.pov.rotate(-mx * 0.002, my * 0.002)
+            self.pov.rotate(mx * 0.002, my * 0.002)
+            self.mouse_x = self.screen_width / 2
+            self.mouse_y = self.screen_height / 2
+
             self.render.clear()
             self.render.draw_scene()
             self.render.present()
@@ -111,10 +114,14 @@ class Main:
             self.pov.move([0,0, speed])
         if keys[pygame.K_s]:
             self.pov.move([0,0,-speed])
-        if keys[pygame.K_d]:
-            self.pov.move([-speed,0,0])
         if keys[pygame.K_q]:
+            self.pov.move([-speed,0,0])
+        if keys[pygame.K_d]:
             self.pov.move([speed,0,0])
+        if keys[pygame.K_SPACE]:
+            self.pov.move([0,speed,0])
+        if keys[pygame.K_a]:
+            self.pov.move([0,-speed,0])
 
     def toggle_fullscreen(self):
         """bascule entre mode fenêtré et plein écran"""
