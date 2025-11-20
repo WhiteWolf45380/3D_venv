@@ -2,69 +2,100 @@ import numpy as np
 import math
 
 class Pov:
-    """Caméra 3D first-person avec matrices view et projection"""
-
     def __init__(self, main):
+        """formalités"""
         self.main = main
-        self.pos = np.array([0.0, 2.0, -8.0], dtype=np.float32)
-        self.yaw = 0.0
-        self.pitch = 0.0
 
-        # Projection
-        self.fov = 60
-        self.znear = 0.1
-        self.zfar = 1000.0
+        """position"""
+        self.pos = np.array([0, 0, 0], dtype=np.float32)
 
-        self.update_matrices()
+        self.yaw = 0 # rotation caméra (gauche/droite)
+        self.pitch = 0 # rotation caméra (haut/bas)
 
-    def update_matrices(self):
-        """Calcule les matrices view et projection"""
+        self.world_up = np.array([0, 1, 0], dtype=np.float32) # vecteur vers le haut de l'espace
+        self.forward = None # vecteur vers l'avant
+        self.right = None # vecteur vers la droite
+        self.up = None # vecteur vers le haut
 
-        # --- PROJECTION ---
-        aspect = self.main.screen_width / self.main.screen_height
-        f = 1.0 / math.tan(math.radians(self.fov) * 0.5)
-        zn, zf = self.znear, self.zfar
+        """projection"""
+        self.fov = 60 # angle du cone de vision
 
-        self.proj = np.array([
-            [f/aspect, 0, 0, 0],
-            [0, f, 0, 0],
-            [0, 0, (zf+zn)/(zn-zf), (2*zf*zn)/(zn-zf)],
-            [0, 0, -1, 0]
+        self.view_matrice = None
+
+        """initialisation"""
+        self.update_matrice()
+    
+    @property
+    def x(self):
+        """position sur l'axe x"""
+        return self.pos[0]
+    
+    @property
+    def y(self):
+        """position sur l'axe y"""
+        return self.pos[1]
+    
+    @property
+    def z(self):
+        """position sur l'axe z"""
+        return self.pos[2]
+    
+    def update_matrice(self, dirs=True):
+        """actualisation de la matrice de vue"""
+        if dirs: # calcul des vecteurs directionnels
+            self.update_directions()
+        
+        # matrice de vue
+        f = self.forward
+        r = self.right
+        u = self.up
+        p = self.pos
+        self.view_matrice = np.array(
+            [[  r[0],   r[1],   r[2],   -np.dot(r, p)],
+             [  u[0],   u[1],   u[2],   -np.dot(u, p)],
+             [  -f[0],  -f[1],  -f[2],  -np.dot(f, p)],
+             [  0,      0,      0,      1],]
+            , dtype=np.float32)
+    
+    def update_directions(self):
+        """actualise les vecteurs directionnels"""
+        self.forward = self.calc_forward()
+        self.right = self.calc_right()
+        self.up = self.calc_up()
+    
+    def calc_forward(self):
+        """actualise le vecteur vers l'avant de la caméra"""
+        # valeurs trigonométriques
+        yaw_cos = np.cos(np.radians(self.yaw))
+        yaw_sin = np.sin(np.radians(self.yaw))
+        pitch_cos = np.cos(np.radians(self.pitch))
+        pitch_sin = np.sin(np.radians(self.pitch))
+        # vecteur directionnel
+        return  np.array([
+            yaw_sin * pitch_cos,    # x
+            pitch_sin,              # y
+            -yaw_cos * pitch_cos,   # z
         ], dtype=np.float32)
+    
+    def calc_right(self):
+        """actualise le vecteur vers la droite de la caméra"""
+        right = np.cross(self.forward, self.world_up)
+        return right / np.linalg.norm(right)
 
-        # --- ORIENTATION ---
-        cy, sy = math.cos(self.yaw), math.sin(self.yaw)
-        cp, sp = math.cos(self.pitch), math.sin(self.pitch)
-
-        self.forward = np.array([sy*cp, sp, cy*cp], dtype=np.float32)
-        self.forward /= np.linalg.norm(self.forward)
-
-        world_up = np.array([0, 1, 0], dtype=np.float32)
-
-        # RIGHT = world_up × forward  (FPS standard)
-        self.right = np.cross(world_up, self.forward)
-        self.right /= np.linalg.norm(self.right)
-
-        # UP = forward × right
-        self.up = np.cross(self.forward, self.right)
-        self.up /= np.linalg.norm(self.up)
-
-        # --- MATRICE VIEW ---
-        R = np.stack([self.right, self.up, self.forward])
-
-        self.view = np.eye(4, dtype=np.float32)
-        self.view[:3, :3] = R
-        self.view[:3, 3] = -R @ self.pos
-
+    def calc_up(self):
+        """actualise le vecteir vers le haut de la caméra"""
+        up = np.cross(self.right, self.forward)
+        return up / np.linalg.norm(up)
+ 
     def move(self, offset):
-        """Déplace la caméra selon [right, up, forward]"""
+        """déplacement de la caméra"""
         self.pos += self.right * offset[0]
         self.pos += self.up * offset[1]
         self.pos += self.forward * offset[2]
-        self.update_matrices()
+        self.update_matrice(dirs=False)
 
     def rotate(self, dyaw, dpitch):
-        """Rotation de la caméra"""
+        """rotation de la caméra"""
         self.yaw += dyaw
-        self.pitch = np.clip(self.pitch + dpitch, -math.pi/2 + 0.01, math.pi/2 - 0.01)
-        self.update_matrices()
+        self.pitch = np.clip(self.pitch + dpitch, -89, 89)
+        self.update_matrice()

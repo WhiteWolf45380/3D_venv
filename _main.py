@@ -3,7 +3,7 @@ import sys
 import os
 from _env import Environnement
 from _pov import Pov
-from _render import Render
+from _renderer import Renderer
 
 
 # _________________________- Main -_________________________
@@ -54,7 +54,7 @@ class Main:
         """objets"""
         self.env = Environnement(self)
         self.pov = Pov(self)
-        self.render = Render(self)
+        self.renderer = Renderer(self)
     
     def loop(self):
         """loop principal du logiciel"""
@@ -73,16 +73,14 @@ class Main:
 
             # vérification des entrées utilisateur
             self.handle_inputs()
+            self.handle_pressed()
 
             # mouse look
             mx, my = pygame.mouse.get_rel()
-            self.pov.rotate(mx * 0.002, my * 0.002)
-            self.mouse_x = self.screen_width / 2
-            self.mouse_y = self.screen_height / 2
+            if mx != 0 or my != 0:
+                self.pov.rotate(mx * 0.01, -my * 0.01)
 
-            self.render.clear()
-            self.render.draw_scene()
-            self.render.present()
+            # mise à jour de l'environnement
 
             # mise à jour de l'écran
             self.blit_screen_resized()
@@ -99,16 +97,16 @@ class Main:
                 if not self.fullscreen:
                     self.windowed_width = event.w
                     self.windowed_height = event.h
-                self.render.resize_buffers()
             
             elif event.type == pygame.KEYDOWN:
                 # toggle mode du plein écran
                 if event.key == pygame.K_F11:
                     self.toggle_fullscreen()
-                    self.render.resize_buffers()
-                
-        keys = pygame.key.get_pressed()
-        # simple camera
+    
+    def handle_pressed(self):
+        keys = pygame.key.get_pressed() # clés pressées
+
+        # déplacement
         speed = 3.0 * self.dt
         if keys[pygame.K_z]:
             self.pov.move([0,0, speed])
