@@ -108,9 +108,10 @@ class Pov:
     # ___________________________________________________________ Méthodes dynamiques ___________________________________________________________
     def move(self, offset):
         """déplacement de la caméra"""
-        self.pos += self.right * offset[0]
-        self.pos += self.world_up * offset[1]
-        self.pos += self.forward * offset[2]
+        self.pos += self.right * offset[0] # déplacement latéral
+        self.pos += self.world_up * offset[1] # déplacement vertical
+        forward = np.array([self.forward[0], 0, self.forward[2]], dtype=np.float32)
+        self.pos += forward * offset[2] # déplacement avant/arrière
         self.update_view_matrix(dirs=False)
 
     def rotate(self, dyaw, dpitch):

@@ -16,41 +16,58 @@ class Environnement:
         """ajoute un objet à la scène"""
         self.objects.append(obj)
     
-    def screen_triangles(self, V_ndc):
+    @property
+    def screen_triangles(self):
         """renvoie l'ensemble des triangles à afficher"""
         triangles = [] # liste de tous les triangles
         for obj in self.objects: # parcours l'ensemble des objets
             mesh = obj.mesh # raccourci
 
-            # récupération des vertexs dans l'espace NDC
-            V_ndc, V_clip_mask = mesh.get_ndc_vertices(self.main.pov.view_matrix, self.main.pov.projection_matrix, mask=True)
+            # espace monde
+            V_h = mesh.world_vertices()
+
+            # référentiel de la caméra
+            V_camera = mesh.camera_vertices(V_h, self.main.pov.view_matrix)
+
+            # espace de découpage
+            V_clip = mesh.clip_vertices(V_camera, self.main.pov.projection_matrix)
+
+            # mask frustum
+            V_clip_mask = mesh.clip_mask(V_clip)
+
+            # espace ndc
+            V_ndc = mesh.ndc_vertices(V_clip)
 
             # récupération des vertexs à l'écran
-            V_screen = mesh.get_screen_vertices(V_ndc, (self.main.screen_width, self.main.screen_height))
+            V_screen = mesh.screen_vertices(V_ndc, (self.main.screen_width, self.main.screen_height))
 
-            # formation des triangles
+            # chaque triangle
             for i, index in enumerate(mesh.indexes):
                 # hors frustum
                 visible = (V_clip_mask[index[0]] | V_clip_mask[index[1]] | V_clip_mask[index[2]])
                 if not visible:
                     continue
-
-                # triangle
-                triangle = [V_screen[index[0]], V_screen[index[1]], V_screen[index[2]], mesh.get_color(i)]
                 
-                # back-face culling
-                if not self.bf_culling(triangle):
+                # back-face culling avec l'espace caméra
+                triangle_camera = [V_camera[index[0]][:3], V_camera[index[1]][:3], V_camera[index[2]][:3]]
+                normale = self.triangle_normale(triangle_camera)
+                if not self.bf_culling(triangle_camera, normale):
                     continue
-                    
-                # ajout du triangle
+
+                # formation du triangle
+                triangle = [V_screen[index[0]], V_screen[index[1]], V_screen[index[2]], mesh.get_color(i)]
+
                 triangles.append(triangle)
         return triangles
     
-    def bf_culling(self, triangle: list):
+    def triangle_normale(self, triangle: list):
+        """renvoie la normale d'un triangle"""
+        return np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
+    
+    def bf_culling(self, triangle: list, normale):
         """vérifie la visibilité du triangle par black-face culling"""
-        # back-face culling
-        normale = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
-        visible = np.dot(normale, self.main.pov.pos - triangle[0]) < 0
+        center = (triangle[0] + triangle[1] + triangle[2]) / 3
+        visible = np.dot(normale, -center) > 0
         return visible
 
 class Mesh:
