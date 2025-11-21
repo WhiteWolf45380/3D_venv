@@ -5,6 +5,11 @@ from _env import Environnement
 from _pov import Pov
 from _renderer import Renderer
 
+"""à faire"""
+# back-face culling
+# couleurs
+# lambert light computing
+# importation .OBJ
 
 # _________________________- Main -_________________________
 class Main:
@@ -79,7 +84,7 @@ class Main:
             mx, my = pygame.mouse.get_rel()
             if mx != 0 or my != 0:
                 self.pov.rotate(mx * 0.04, my * 0.04)
-            print(1 / self.dt)
+
             # mise à jour de l'environnement
             self.renderer.draw_scene()
 

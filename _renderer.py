@@ -12,7 +12,7 @@ class Renderer:
         # background
         self.main.screen.fill((50, 50, 50))
 
-        triangles = self.main.env.get_screen_triangles()
+        triangles = self.main.env.screen_triangles
 
         for triangle in triangles: # dessin des triangles à l'écran
             pygame.draw.polygon(self.main.screen, triangle[3],  [(float(triangle[i][0]), float(triangle[i][1])) for i in range(3)])

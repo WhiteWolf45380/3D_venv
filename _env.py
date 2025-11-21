@@ -16,7 +16,7 @@ class Environnement:
         """ajoute un objet à la scène"""
         self.objects.append(obj)
     
-    def get_screen_triangles(self):
+    def screen_triangles(self, V_ndc):
         """renvoie l'ensemble des triangles à afficher"""
         triangles = [] # liste de tous les triangles
         for obj in self.objects: # parcours l'ensemble des objets
@@ -30,16 +30,28 @@ class Environnement:
 
             # formation des triangles
             for i, index in enumerate(mesh.indexes):
+                # hors frustum
                 visible = (V_clip_mask[index[0]] | V_clip_mask[index[1]] | V_clip_mask[index[2]])
-                if not visible: # hors frustum
+                if not visible:
                     continue
-                triangles.append([
-                    V_screen[index[0]],
-                    V_screen[index[1]],
-                    V_screen[index[2]],
-                    mesh.get_color(i)
-                ])
+
+                # triangle
+                triangle = [V_screen[index[0]], V_screen[index[1]], V_screen[index[2]], mesh.get_color(i)]
+                
+                # back-face culling
+                if not self.bf_culling(triangle):
+                    continue
+                    
+                # ajout du triangle
+                triangles.append(triangle)
         return triangles
+    
+    def bf_culling(self, triangle: list):
+        """vérifie la visibilité du triangle par black-face culling"""
+        # back-face culling
+        normale = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
+        visible = np.dot(normale, self.main.pov.pos - triangle[0]) < 0
+        return visible
 
 class Mesh:
     """Ensemble de triangles formant un objet"""
@@ -56,36 +68,38 @@ class Mesh:
         if self.unicolor:
             return self.colors
         return self.colors[i]
-
-    def get_ndc_vertices(self, view_matrix, projection_matrix, mask: bool=False):
-        """renvoie les vertexs dans l'espace NDC"""
+    
+    def world_vertices(self):
+        """renvoie les vertexs dans l'espace monde"""
         # reshape vers (N, 4)
-        V_h = self.vertices_homogeneous
-
+        return self.vertices_homogeneous
+    
+    def camera_vertices(self, V_h,  view_matrix):
+        """renvoie les vertexs dans l'espace relatif à la caméra"""
         # transformation dans le repère de la caméra
-        V_camera = V_h @ view_matrix.T
-
+        return V_h @ view_matrix.T
+    
+    def clip_vertices(self, V_camera, projection_matrix):
+        """renvoie les vertexs dans l'espace de découpage"""
         # transformation dans l'espace de découpage
-        V_clip = V_camera @ projection_matrix.T
-
-        # clipping
-        if mask:
-            w = V_clip[:, 3]
-            V_clip_mask = (
-                (V_clip[:,0] >= -w) &
+        return V_camera @ projection_matrix.T
+    
+    def clip_mask(self, V_clip):
+        """renvoie le masque de présence dans le frustum"""
+        w = V_clip[:, 3]
+        return ((V_clip[:,0] >= -w) &
                 (V_clip[:,0] <=  w) &
                 (V_clip[:,1] >= -w) &
                 (V_clip[:,1] <=  w) &
-                (V_clip[:,2] >=  -w) &
-                (V_clip[:,2] <=  w)
-            )
-
-        # division perspective
-        V_ndc = V_clip[:, :3] / V_clip[:, 3:4]
-
-        return (V_ndc, V_clip_mask) if mask else V_ndc
+                (V_clip[:,2] >= -w) &
+                (V_clip[:,2] <=  w))
     
-    def get_screen_vertices(self, V_ndc, size: tuple):
+    def ndc_vertices(self, V_clip):
+        """renvoie les vertexs dans l'espace ndc [-1; 1]"""
+        # division perspective
+        return V_clip[:, :3] / V_clip[:, 3:4]
+    
+    def screen_vertices(self, V_ndc, size: tuple):
         """renvoie les vertexs en pixels"""
         V_screen = np.empty_like(V_ndc) # crée une matrice vide (N, 4)
 
@@ -103,37 +117,31 @@ class Cube:
         self.color = color
         half = size / 2
 
-        # 2 coins opposés
+        # coin d'origine et opposé
         x0, x1 = pos[0] - half, pos[0] + half
         y0, y1 = pos[1] - half, pos[1] + half
-        z0, z1 = pos[2] - half, pos[2] + half
+        z0, z1 = pos[2] + half,pos[2] - half
 
         # 8 sommets
         self.vertices = [
-            [x0, y0, z0],
-            [x1, y0, z0],
-            [x1, y1, z0],
-            [x0, y1, z0],
-            [x0, y0, z1],
-            [x1, y0, z1],
-            [x1, y1, z1],
-            [x0, y1, z1],
+            [x0, y0, z0],   # gauche bas devant
+            [x1, y0, z0],   # droite bas devant
+            [x1, y0, z1],   # droite bas derrière
+            [x0, y0, z1],   # gauche bas derrière
+            [x0, y1, z0],   # gauche haut devant
+            [x1, y1, z0],   # droite haut devant
+            [x1, y1, z1],   # droite haut derrière
+            [x0, y1, z1],   # gauche haut derrière
         ]
 
         # 12 triangles (indices)
         self.indexes = [
-            # face arrière (z0)
-            [0,1,2], [0,2,3],
-            # face avant (z1)
-            [4,5,6], [4,6,7],
-            # face gauche (x0)
-            [0,3,7], [0,7,4],
-            # face droite (x1)
-            [1,5,6], [1,6,2],
-            # face basse (y0)
-            [0,1,5], [0,5,4],
-            # face haute (y1)
-            [3,2,6], [3,6,7],
+            [4,1,0], [4,5,1], # face avant (z0)
+            [6,3,2], [6,7,3], # face arrière (z1)
+            [7,0,3], [7,4,0], # face gauche (x0)
+            [5,2,1], [5,6,2], # face droite (x1)
+            [0,2,3], [0,1,2], # face basse (y0)
+            [7,5,4], [7,6,5], # face haute (y1)
         ]
 
         # mesh

@@ -67,10 +67,10 @@ class Pov:
         n = self.near                               # limite proche
         f = self.far                                # limite éloignée
         self.projection_matrix = np.array(
-            [[r/self.aspect,    0,      0,      0],                     # mise à l'échelle horizontale
-             [0,    r,      0,      0],                                 # mise à l'échelle verticale
-             [0,    0,      -(f + n) / (f - n), -2 * f * n / (f - n)],    # encodage de la profondeur
-             [0,    0,      -1,     0]]                                 # division perspective
+            [[r/self.aspect, 0, 0, 0],              # mise à l'échelle horizontale
+             [0, r, 0, 0],                          # mise à l'échelle verticale
+             [0, 0, -(f+n)/(f-n), -2*f*n/(f-n)],    # encodage de la profondeur
+             [0, 0, -1, 0]]                         # division perspective
              , dtype=np.float32
         )
 
