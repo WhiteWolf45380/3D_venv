@@ -9,7 +9,7 @@ class Environnement:
         self.objects = []
 
         # cube
-        cube1 = Cube([0, 0, -5], 1.0)
+        cube1 = Cube([0, 0, -10], 1, color=[(255, 0, 0), (0, 255, 0), (0, 0, 255)])
         self.add(cube1)
 
     def add(self, obj: object):
@@ -32,30 +32,31 @@ class Environnement:
             # espace de découpage
             V_clip = mesh.clip_vertices(V_camera, self.main.pov.projection_matrix)
 
-            # mask frustum
-            V_clip_mask = mesh.clip_mask(V_clip)
-
             # espace ndc
             V_ndc = mesh.ndc_vertices(V_clip)
+
+            # mask frustum
+            V_ndc_mask = mesh.ndc_mask(V_ndc)
 
             # récupération des vertexs à l'écran
             V_screen = mesh.screen_vertices(V_ndc, (self.main.screen_width, self.main.screen_height))
 
             # chaque triangle
             for i, index in enumerate(mesh.indexes):
-                # hors frustum
-                visible = (V_clip_mask[index[0]] | V_clip_mask[index[1]] | V_clip_mask[index[2]])
-                if not visible:
-                    continue
-                
                 # back-face culling avec l'espace caméra
                 triangle_camera = [V_camera[index[0]][:3], V_camera[index[1]][:3], V_camera[index[2]][:3]]
                 normale = self.triangle_normale(triangle_camera)
                 if not self.bf_culling(triangle_camera, normale):
                     continue
 
+                # hors frustum
+                visible = (V_ndc_mask[index[0]] | V_ndc_mask[index[1]] | V_ndc_mask[index[2]])
+                if not visible:
+                    continue
+
                 # formation du triangle
-                triangle = [V_screen[index[0]], V_screen[index[1]], V_screen[index[2]], mesh.get_color(i)]
+                depth = (V_camera[index[0]][2] + V_camera[index[1]][2] + V_camera[index[2]][2]) / 3
+                triangle = [V_screen[index[0]], V_screen[index[1]], V_screen[index[2]], depth, mesh.get_color(i)]
 
                 triangles.append(triangle)
         return triangles
@@ -66,8 +67,7 @@ class Environnement:
     
     def bf_culling(self, triangle: list, normale):
         """vérifie la visibilité du triangle par black-face culling"""
-        center = (triangle[0] + triangle[1] + triangle[2]) / 3
-        visible = np.dot(normale, -center) > 0
+        visible = np.dot(normale, triangle[0]) > 0
         return visible
 
 class Mesh:
@@ -101,20 +101,19 @@ class Mesh:
         # transformation dans l'espace de découpage
         return V_camera @ projection_matrix.T
     
-    def clip_mask(self, V_clip):
-        """renvoie le masque de présence dans le frustum"""
-        w = V_clip[:, 3]
-        return ((V_clip[:,0] >= -w) &
-                (V_clip[:,0] <=  w) &
-                (V_clip[:,1] >= -w) &
-                (V_clip[:,1] <=  w) &
-                (V_clip[:,2] >= -w) &
-                (V_clip[:,2] <=  w))
-    
     def ndc_vertices(self, V_clip):
         """renvoie les vertexs dans l'espace ndc [-1; 1]"""
         # division perspective
         return V_clip[:, :3] / V_clip[:, 3:4]
+    
+    def ndc_mask(self, V_ndc, marge: float=0.4):
+        """renvoie le masque de présence dans le frustum"""
+        return ((V_ndc[:,0] >= -(1+marge)) &
+                (V_ndc[:,0] <=  (1+marge)) &
+                (V_ndc[:,1] >= -(1+marge)) &
+                (V_ndc[:,1] <=  (1+marge)) &
+                (V_ndc[:,2] >= -(1+marge)) &
+                (V_ndc[:,2] <=  (1+marge)))
     
     def screen_vertices(self, V_ndc, size: tuple):
         """renvoie les vertexs en pixels"""
@@ -131,7 +130,7 @@ class Cube:
     """forme géométrique cubique de l'espace"""
 
     def __init__(self, pos: list, size: float, color=(255, 0, 0)):
-        self.color = color
+        self.color = self.get_colors(color)
         half = size / 2
 
         # coin d'origine et opposé
@@ -163,3 +162,30 @@ class Cube:
 
         # mesh
         self.mesh = Mesh(self.vertices, self.indexes, colors=self.color)
+
+    def get_colors(self, color):
+        if isinstance(color, tuple):
+            return color
+        elif len(color) == 2:
+            colors = []
+            for _ in range(6):
+                colors.append(color[0])
+                color.append(color[1])
+            return colors
+        elif len(color) == 3:
+            colors = []
+            colors.append(color[0])
+            colors.append(color[0])
+            colors.append(color[0])
+            colors.append(color[0])
+            colors.append(color[1])
+            colors.append(color[1])
+            colors.append(color[1])
+            colors.append(color[1])
+            colors.append(color[2])
+            colors.append(color[2])
+            colors.append(color[2])
+            colors.append(color[2])
+            return colors
+        else:
+            return color[0]

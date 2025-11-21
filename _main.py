@@ -6,7 +6,6 @@ from _pov import Pov
 from _renderer import Renderer
 
 """à faire"""
-# back-face culling
 # couleurs
 # lambert light computing
 # importation .OBJ
@@ -84,6 +83,9 @@ class Main:
             mx, my = pygame.mouse.get_rel()
             if mx != 0 or my != 0:
                 self.pov.rotate(mx * 0.04, my * 0.04)
+                print(f"Cam pos: {self.pov.pos}")
+                print(f"Yaw: {self.pov.yaw}, Pitch: {self.pov.pitch}")
+                print(f"Forward: {self.pov.forward}")
 
             # mise à jour de l'environnement
             self.renderer.draw_scene()
