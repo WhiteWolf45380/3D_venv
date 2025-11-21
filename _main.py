@@ -12,7 +12,7 @@ class Main:
         """variables utiles"""
         self.running = True # état du logiciel
         self.clock = pygame.time.Clock() # clock pygame
-        self.fps_max = 100 # limite de fps
+        self.fps_max = 60 # limite de fps
         self.dt = 0 # delta time utilisé pour les animations
 
         """pygame"""
@@ -78,9 +78,10 @@ class Main:
             # mouse look
             mx, my = pygame.mouse.get_rel()
             if mx != 0 or my != 0:
-                self.pov.rotate(mx * 0.01, -my * 0.01)
-
+                self.pov.rotate(mx * 0.04, my * 0.04)
+            print(1 / self.dt)
             # mise à jour de l'environnement
+            self.renderer.draw_scene()
 
             # mise à jour de l'écran
             self.blit_screen_resized()
@@ -97,11 +98,13 @@ class Main:
                 if not self.fullscreen:
                     self.windowed_width = event.w
                     self.windowed_height = event.h
+                self.pov.update_projection_matrix()
             
             elif event.type == pygame.KEYDOWN:
                 # toggle mode du plein écran
                 if event.key == pygame.K_F11:
                     self.toggle_fullscreen()
+                    self.update_projection_matrix()
     
     def handle_pressed(self):
         keys = pygame.key.get_pressed() # clés pressées

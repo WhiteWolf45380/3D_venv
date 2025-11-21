@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Vector:
-    """Vecteur 3D optimisé avec numpy"""
+    """vecteur 3D optimisé avec numpy"""
     __slots__ = ['data']
     
     def __init__(self, x=0.0, y=0.0, z=0.0):

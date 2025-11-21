@@ -1,6 +1,5 @@
 import pygame
 import numpy as np
-import math
 
 
 class Renderer:    
@@ -8,3 +7,12 @@ class Renderer:
         self.main = main
         self.pov = main.pov
         self.quality = quality
+    
+    def draw_scene(self):
+        # background
+        self.main.screen.fill((50, 50, 50))
+
+        triangles = self.main.env.get_screen_triangles()
+
+        for triangle in triangles: # dessin des triangles à l'écran
+            pygame.draw.polygon(self.main.screen, triangle[3],  [(float(triangle[i][0]), float(triangle[i][1])) for i in range(3)])
