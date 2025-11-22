@@ -60,12 +60,7 @@ class Pov:
              [  -f[0],  -f[1],  -f[2],  np.dot(f, p)],  # axe z
              [  0,      0,      0,      1]]             # canal de translation
             , dtype=np.float32)
-        print(f"\n=== YAW {self.yaw:.1f}° ===")
-        print(f"forward: {f}")
-        print(f"right: {r}")
-        print(f"up: {u}")
-        print("View matrix:")
-        print(self.view_matrix)
+
 
     def update_projection_matrix(self):
         """actualisation de la matrice de projection"""

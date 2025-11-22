@@ -32,11 +32,11 @@ class Environnement:
             # espace de découpage
             V_clip = mesh.clip_vertices(V_camera, self.main.pov.projection_matrix)
 
+            # mask frustum
+            V_clip_mask = mesh.clip_mask(V_clip)
+
             # espace ndc
             V_ndc = mesh.ndc_vertices(V_clip)
-
-            # mask frustum
-            V_ndc_mask = mesh.ndc_mask(V_ndc)
 
             # récupération des vertexs à l'écran
             V_screen = mesh.screen_vertices(V_ndc, (self.main.screen_width, self.main.screen_height))
@@ -50,7 +50,7 @@ class Environnement:
                     continue
 
                 # hors frustum
-                visible = (V_ndc_mask[index[0]] | V_ndc_mask[index[1]] | V_ndc_mask[index[2]])
+                visible = (V_clip_mask[index[0]] | V_clip_mask[index[1]] | V_clip_mask[index[2]])
                 if not visible:
                     continue
 
@@ -101,19 +101,21 @@ class Mesh:
         # transformation dans l'espace de découpage
         return V_camera @ projection_matrix.T
     
+    def clip_mask(self, V_clip, marge: float=0.5):
+        """renvoie le masque de présence dans le frustum"""
+        w = V_clip[:, 3]
+        return (
+            (V_clip[:,0] >= -(w+marge)) &
+            (V_clip[:,0] <=  (w+marge)) &
+            (V_clip[:,1] >= -(w+marge)) &
+            (V_clip[:,1] <=  (w+marge)) &
+            (V_clip[:,2] >= -(w+marge)) &
+            (V_clip[:,2] <=  (w+marge)))
+    
     def ndc_vertices(self, V_clip):
         """renvoie les vertexs dans l'espace ndc [-1; 1]"""
         # division perspective
         return V_clip[:, :3] / V_clip[:, 3:4]
-    
-    def ndc_mask(self, V_ndc, marge: float=0.4):
-        """renvoie le masque de présence dans le frustum"""
-        return ((V_ndc[:,0] >= -(1+marge)) &
-                (V_ndc[:,0] <=  (1+marge)) &
-                (V_ndc[:,1] >= -(1+marge)) &
-                (V_ndc[:,1] <=  (1+marge)) &
-                (V_ndc[:,2] >= -(1+marge)) &
-                (V_ndc[:,2] <=  (1+marge)))
     
     def screen_vertices(self, V_ndc, size: tuple):
         """renvoie les vertexs en pixels"""
