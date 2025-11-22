@@ -3,7 +3,6 @@ import numpy as np
 
 class Environnement:
     """environnement 3D contenant les objets de la scène"""
-    
     def __init__(self, main):
         self.main = main
         self.objects = []
@@ -43,15 +42,17 @@ class Environnement:
 
             # chaque triangle
             for i, index in enumerate(mesh.indexes):
-                # back-face culling avec l'espace caméra
+                # triangle en espace caméra pour les calculs
                 triangle_camera = [V_camera[index[0]][:3], V_camera[index[1]][:3], V_camera[index[2]][:3]]
-                normale = self.triangle_normale(triangle_camera)
-                if not self.bf_culling(triangle_camera, normale):
+
+                # frustum clipping
+                visible = sum(int(V_clip_mask[idx]) for idx in index)
+                if visible == 0:
                     continue
 
-                # hors frustum
-                visible = (V_clip_mask[index[0]] | V_clip_mask[index[1]] | V_clip_mask[index[2]])
-                if not visible:
+                # back-face culling
+                normale = self.triangle_normale(triangle_camera)
+                if not self.bf_culling(triangle_camera, normale):
                     continue
 
                 # formation du triangle
@@ -69,10 +70,10 @@ class Environnement:
         """vérifie la visibilité du triangle par black-face culling"""
         visible = np.dot(normale, triangle[0]) > 0
         return visible
+    
 
 class Mesh:
     """Ensemble de triangles formant un objet"""
-
     def __init__(self, vertices: list, indexes : list, colors=(255, 0, 0)):
         self.vertices = np.array(vertices, dtype=np.float32) # points du mesh
         self.vertices_homogeneous = np.hstack([self.vertices, np.ones((self.vertices.shape[0], 1), dtype=np.float32)]) # ajoute une colonne de 1
@@ -101,16 +102,15 @@ class Mesh:
         # transformation dans l'espace de découpage
         return V_camera @ projection_matrix.T
     
-    def clip_mask(self, V_clip, marge: float=0.5):
+    def clip_mask(self, V_clip, marge: float=0.3):
         """renvoie le masque de présence dans le frustum"""
         w = V_clip[:, 3]
-        return (
-            (V_clip[:,0] >= -(w+marge)) &
-            (V_clip[:,0] <=  (w+marge)) &
-            (V_clip[:,1] >= -(w+marge)) &
-            (V_clip[:,1] <=  (w+marge)) &
-            (V_clip[:,2] >= -(w+marge)) &
-            (V_clip[:,2] <=  (w+marge)))
+        return ((V_clip[:,0] >= -(w+marge)) &
+                (V_clip[:,0] <=  (w+marge)) &
+                (V_clip[:,1] >= -(w+marge)) &
+                (V_clip[:,1] <=  (w+marge)) &
+                (V_clip[:,2] >= -(w+marge)) &
+                (V_clip[:,2] <=  (w+marge)))
     
     def ndc_vertices(self, V_clip):
         """renvoie les vertexs dans l'espace ndc [-1; 1]"""
