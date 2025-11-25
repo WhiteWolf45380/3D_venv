@@ -20,7 +20,7 @@ class Pov:
         """projection"""
         self.fov = 60 # angle du cone de vision
         self.aspect = self.main.screen_width / self.main.screen_height # ratio d'aspect
-        self.near = 0.1 # distance minimal d'affichage
+        self.near = 0.01 # distance minimal d'affichage
         self.far = 1000.0 # distance maximale d'affichage
 
         self.view_matrix = None # matrice relative à la caméra

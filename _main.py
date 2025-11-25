@@ -8,7 +8,6 @@ from _renderer import Renderer
 """à faire"""
 # couleurs
 # lambert light computing
-# importation .OBJ
 
 # _________________________- Main -_________________________
 class Main:

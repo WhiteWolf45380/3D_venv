@@ -1,4 +1,5 @@
 import numpy as np
+from _data_manager import DataManager
 
 
 class Environnement:
@@ -7,9 +8,20 @@ class Environnement:
         self.main = main
         self.objects = []
 
+        # gestionnaire de données
+        self.data_manager = DataManager(self)
+
+        # arbre
+        vertices, indexes = self.data_manager.load_obj("objects/human.obj")
+        h = Object(vertices, indexes)
+        self.objects.append(h)
+
         # cube
-        cube1 = Cube([0, 0, -10], 1, color=[(255, 0, 0), (0, 255, 0), (0, 0, 255)])
-        self.add(cube1)
+        for i in range(3):
+            for j in range(3):
+                for k in range(3):
+                    cube1 = Cube([i * 1.1, j * 1.1, -10 + k * 1.1], 1, color=[(255, 0, 0), (0, 255, 0), (0, 0, 255)])
+                    self.add(cube1)
 
     def add(self, obj: object):
         """ajoute un objet à la scène"""
@@ -32,7 +44,7 @@ class Environnement:
             V_clip = mesh.clip_vertices(V_camera, self.main.pov.projection_matrix)
 
             # mask frustum
-            V_clip_mask = mesh.clip_mask(V_clip)
+            V_clip_mask, V_crossing_mask = mesh.clip_mask(V_clip)
 
             # espace ndc
             V_ndc = mesh.ndc_vertices(V_clip)
@@ -42,13 +54,18 @@ class Environnement:
 
             # chaque triangle
             for i, index in enumerate(mesh.indexes):
-                # triangle en espace caméra pour les calculs
-                triangle_camera = [V_camera[index[0]][:3], V_camera[index[1]][:3], V_camera[index[2]][:3]]
-
                 # frustum clipping
                 visible = sum(int(V_clip_mask[idx]) for idx in index)
                 if visible == 0:
                     continue
+
+                elif visible < 3:
+                    crossing = ( V_crossing_mask[0] & V_crossing_mask[1] & V_crossing_mask[2])
+                    if not crossing:
+                        continue
+
+                # triangle en espace caméra pour les calculs
+                triangle_camera = [V_camera[index[0]][:3], V_camera[index[1]][:3], V_camera[index[2]][:3]]
 
                 # back-face culling
                 normale = self.triangle_normale(triangle_camera)
@@ -102,15 +119,18 @@ class Mesh:
         # transformation dans l'espace de découpage
         return V_camera @ projection_matrix.T
     
-    def clip_mask(self, V_clip, marge: float=0.3):
+    def clip_mask(self, V_clip, margin: float=0.3, near_margin: float=0.35):
         """renvoie le masque de présence dans le frustum"""
         w = V_clip[:, 3]
-        return ((V_clip[:,0] >= -(w+marge)) &
-                (V_clip[:,0] <=  (w+marge)) &
-                (V_clip[:,1] >= -(w+marge)) &
-                (V_clip[:,1] <=  (w+marge)) &
-                (V_clip[:,2] >= -(w+marge)) &
-                (V_clip[:,2] <=  (w+marge)))
+        frustum = ((V_clip[:,0] >= -(w+margin)) &
+                (V_clip[:,0] <=  (w+margin)) &
+                (V_clip[:,1] >= -(w+margin)) &
+                (V_clip[:,1] <=  (w+margin)) &
+                (V_clip[:,2] >= -(w+margin)) &
+                (V_clip[:,2] <=  (w+margin)))
+        
+        crossing = (V_clip[:, 2] < -near_margin)
+        return frustum, crossing
     
     def ndc_vertices(self, V_clip):
         """renvoie les vertexs dans l'espace ndc [-1; 1]"""
@@ -128,9 +148,82 @@ class Mesh:
         return V_screen
 
 
+class Object:
+    """Objet 3D importé, avec position, rotation et échelle"""
+    
+    def __init__(self, vertices: np.ndarray, indexes: np.ndarray):
+        self.vertices = vertices           # vertexs dans le repère local
+        self.indexes = indexes             # indices des triangles
+        self.mesh = Mesh(vertices, indexes)
+
+        # Transformations
+        self.position = np.array([0, 0, 0], dtype=np.float32)
+        self.rotation = np.array([0, 0, 0], dtype=np.float32)  # rotation en degrés [pitch, yaw, roll]
+        self.scale = np.array([1, 1, 1], dtype=np.float32)
+
+        # Matrice de transformation locale
+        self.transform_matrix = np.eye(4, dtype=np.float32)
+        self.update_transform_matrix()
+
+    def update_transform_matrix(self):
+        """Met à jour la matrice de transformation locale"""
+        # Rotation en radians
+        rx, ry, rz = np.radians(self.rotation)
+
+        # Matrices de rotation
+        Rx = np.array([
+            [1, 0, 0, 0],
+            [0, np.cos(rx), -np.sin(rx), 0],
+            [0, np.sin(rx), np.cos(rx), 0],
+            [0, 0, 0, 1]
+        ], dtype=np.float32)
+
+        Ry = np.array([
+            [np.cos(ry), 0, np.sin(ry), 0],
+            [0, 1, 0, 0],
+            [-np.sin(ry), 0, np.cos(ry), 0],
+            [0, 0, 0, 1]
+        ], dtype=np.float32)
+
+        Rz = np.array([
+            [np.cos(rz), -np.sin(rz), 0, 0],
+            [np.sin(rz), np.cos(rz), 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ], dtype=np.float32)
+
+        # Matrice d'échelle
+        S = np.diag([*self.scale, 1])
+
+        # Matrice de translation
+        T = np.eye(4, dtype=np.float32)
+        T[:3, 3] = self.position
+
+        # Composition finale : T * Rz * Ry * Rx * S
+        self.transform_matrix = T @ Rz @ Ry @ Rx @ S
+
+    def set_position(self, pos):
+        self.position[:] = pos
+        self.update_transform_matrix()
+
+    def set_rotation(self, rot):
+        self.rotation[:] = rot
+        self.update_transform_matrix()
+
+    def set_scale(self, scale):
+        self.scale[:] = scale
+        self.update_transform_matrix()
+
+    def get_world_vertices(self):
+        """Retourne les vertexs transformés dans le monde (homogènes)"""
+        # Ajouter la coordonnée homogène
+        V_h = np.hstack([self.vertices, np.ones((self.vertices.shape[0], 1), dtype=np.float32)])
+        # Appliquer la transformation
+        return V_h @ self.transform_matrix.T
+
+
 class Cube:
     """forme géométrique cubique de l'espace"""
-
     def __init__(self, pos: list, size: float, color=(255, 0, 0)):
         self.color = self.get_colors(color)
         half = size / 2
