@@ -11,11 +11,6 @@ class Environnement:
         # gestionnaire de données
         self.data_manager = DataManager(self)
 
-        # arbre
-        vertices, indexes = self.data_manager.load_obj("objects/human.obj")
-        h = Object(vertices, indexes)
-        self.objects.append(h)
-
         # cube
         for i in range(3):
             for j in range(3):
